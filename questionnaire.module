@@ -1,6 +1,13 @@
 <?php
 
 /**
+ * @file
+ * Code for the Questionnaire feature.
+ */
+
+include_once 'questionnaire.features.inc';
+
+/**
  * Implements hook_entity_info().
  */
 function questionnaire_entity_info() {
@@ -90,6 +97,8 @@ function questionnaire_results_access($node) {
       }
     }
   }
+
+  return false;
 }
 
 /**

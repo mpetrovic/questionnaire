@@ -1,12 +1,13 @@
 name = Questionnaire
+description = Allow for creation of questionnaires that users can answer
 core = 7.x
-description = "Allow for creation of questionnaires that users can answer"
 package = Custom
 version = 7.x-1.0
 dependencies[] = entityreference
 dependencies[] = features
 dependencies[] = node
 dependencies[] = views
+explanation = Field type(s) in use - see <a href="/admin/reports/fields">Field list</a>
 features[ctools][] = views:views_default:3.0
 features[features_api][] = api:2
 features[field_base][] = field_questions
@@ -23,3 +24,4 @@ features[user_role][] = supervisor
 features[views_view][] = questionnaire_supervisors
 features_exclude[dependencies][ctools] = ctools
 features_exclude[dependencies][questionnaire] = questionnaire
+required = 1
