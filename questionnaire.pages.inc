@@ -1,5 +1,8 @@
 <?php
 
+/**
+ * Renders a list of all completed tests
+ */
 function questionnaire_results_page($node) {
   $output = array();
 

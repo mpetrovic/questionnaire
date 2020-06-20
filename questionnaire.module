@@ -343,6 +343,9 @@ function questionnaire_user_view($account, $view_mode, $langcode) {
   }
 }
 
+/**
+ * Determine the number of correct answers given for this question.
+ */
 function _questionnaire_get_correct_count($node, $answersGiven) {
   $questions = field_get_items('node', $node, 'field_questions');
   $correctCount = 0;
