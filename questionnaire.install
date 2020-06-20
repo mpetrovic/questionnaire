@@ -1,0 +1,65 @@
+<?php
+
+function questionnaire_schema() {
+  $tables = array();
+
+  $tables['questionnaire_result_set'] = array(
+    'description' => 'Stores the results of a questionnaire taken by a given user.',
+    'fields' => array(
+      'qrsid' => array(
+        'type' => 'serial',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'uid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'nid' => array(
+        'type' => 'int',
+        'unsigned' => TRUE,
+        'not null' => TRUE,
+      ),
+      'answers' => array(
+        'type' => 'text',
+      )
+    ),
+    'primary key' => array('qrsid'),
+    'unique keys' => array(
+      'uid-nid' => array('uid', 'nid')
+    ),
+    'indexes' => array(
+      'uid' => array('uid'),
+      'nid' => array('nid')
+    )
+  );
+
+  return $tables;
+}
+
+function questionnaire_field_schema($field) {
+  $columns = array(
+    'question' => array(
+      'type' => 'varchar',
+      'length' => '255',
+    ),
+    'correct_answer' => array(
+      'type' => 'varchar',
+      'length' => '255',
+    ),
+    'wrong_answers' => array(
+      'type' => 'text',
+    ),
+    'complexity' => array(
+      'type' => 'int',
+      'unsigned' => TRUE,
+      'not null' => TRUE,
+    )
+  );
+
+  return array(
+    'columns' => $columns,
+    'indexes' => array()
+  );
+}

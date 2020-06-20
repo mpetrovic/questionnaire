@@ -1,0 +1,348 @@
+<?php
+
+/**
+ * Implements hook_entity_info().
+ */
+function questionnaire_entity_info() {
+  return array(
+    'questionnaire_result_set' => array(
+      'label' => t('Result Set'),
+      'base table' => 'questionnaire_result_set',
+      'entity keys' => array(
+        'id' => 'qrsid',
+      ),
+      'controller class' => 'EntityAPIController'
+    )
+  );
+}
+
+/**
+ * Implements hook_entity_info_alter().
+ *
+ * Creates a custom view mode so we can render the questions inside a form.
+ */
+function questionnaire_entity_info_alter(&$entity_info) {
+  $entity_info['node']['view modes']['questionnaire_form'] = array(
+    'label' => t('Questionnaire Form'),
+    'custom settings' => TRUE,
+  );
+}
+
+/**
+ * Implements hook_load().
+ */
+function questionnaire_result_set_load($id, $reset = FALSE) {
+  return questionnaire_result_set_load_multiple(array($id), array(), $reset);
+}
+
+/**
+ * Implements hook_load_multipl().
+ */
+function questionnaire_result_set_load_multiple($ids = array(), $conditions = array(), $reset = FALSE) {
+  return entity_load('questionnaire_result_set', $ids, $conditions, $reset);
+}
+
+/**
+ * Implements hook_menu().
+ */
+function questionnaire_menu() {
+  $items = array();
+
+  $items['node/%node/results'] = array(
+    'title' => 'Results',
+    'page callback' => 'questionnaire_results_page',
+    'page arguments' => array(
+      1
+    ),
+    'access callback' => 'questionnaire_results_access',
+    'access arguments' => array(
+      1
+    ),
+    'type' => MENU_LOCAL_TASK,
+    'file' => 'questionnaire.pages.inc'
+  );
+
+  return $items;
+}
+
+/**
+ * Access callback.
+ */
+function questionnaire_results_access($node) {
+  if ($node->type !== 'questionnaire') {
+    return FALSE;
+  }
+
+  global $user;
+
+  if ($user->uid == 1) {
+    return true;
+  }
+  elseif ($user->uid == $node->uid) {
+    return true;
+  }
+  else {
+    $supers = field_get_items('node', $node, 'field_supervisors');
+
+    foreach ($supers as $s) {
+      if ($user->uid == $s['target_id']) {
+        return true;
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_field_info().
+ */
+function questionnaire_field_info() {
+  return array(
+    'field_question' => array(
+      'label' => t('Question'),
+      'description' => t('This field stores a question, its possible answers, and a complexity score.'),
+      'settings' => array(),
+      'instance_settings' => array(
+        'question' => '',
+        'correct_answer' => '',
+        'wrong_answers' => '',
+        'complexity' => ''
+      ),
+      'default_widget' => 'questionnaire_question',
+      'default_formatter' => 'questionnaire_question_render'
+    )
+  );
+}
+
+/**
+ * Implements hook_field_validate().
+ */
+function questionnaire_field_validate($entity_type, $entity, $field, $instance, $langcode, $items, &$errors) {
+  return true;
+}
+
+/**
+ * Implements hook_field_is_empty();
+ */
+function questionnaire_field_is_empty($item, $field) {
+  return (empty($item['question']) || empty($item['correct_answer']));
+}
+
+/**
+ * Implements hook_field_formatter_info().
+ */
+function questionnaire_field_formatter_info() {
+  return array(
+    'questionnaire_question_render' => array(
+      'label' => t('Question renderer'),
+      'field types' => array('field_question'),
+    )
+  );
+}
+
+/**
+ * Implements hook_field_formatter_view().
+ */
+function questionnaire_field_formatter_view($entity_type, $entity, $field, $instance, $langcode, $items, $display) {
+  $elements = array();
+
+  switch ($display['type']) {
+    case 'questionnaire_question_render':
+      foreach ($items as $delta => $item) {
+        $answers = explode("\r\n", $item['wrong_answers']);
+        $answers[] = $item['correct_answer'];
+        sort($answers);
+
+        $elements[$delta] = array(
+          'answers-'.$delta => array(
+            '#type' => 'radios',
+            '#title' => $item['question'],
+            '#options' => $answers,
+            '#default_value' => NULL,
+          ),
+          'complexity' => array(
+            '#markup' => t('Complexity Score: @score', array('@score' => $item['complexity']))
+          )
+        );
+      }
+    break;
+  }
+
+  return $elements;
+}
+
+/**
+ * Implements hook_field_widget_info().
+ */
+function questionnaire_field_widget_info() {
+  return array(
+    'questionnaire_questions_form' => array(
+      'label' => t('Add, edit, or remove questions from a questionnaire'),
+      'field types' => array('field_question')
+    )
+  );
+}
+
+/**
+ * Implements hook_field_widget_form().
+ */
+function questionnaire_field_widget_form(&$form, &$form_state, $field, $instance, $langcode, $items, $delta, $element) {
+  $value = isset($items[$delta]) ? $items[$delta] : array();
+  $value += array('question' => '', 'correct_answer' => '', 'wrong_answers' => '', 'complexity' => 1);
+
+  $widget = $element;
+  $widget['#delta'] = $delta;
+
+  switch ($instance['widget']['type']) {
+    case 'questionnaire_questions_form':
+      $widget['question'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Question'),
+        '#default_value' => $value['question'],
+      );
+      $widget['correct_answer'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Correct Answer'),
+        '#default_value' => $value['correct_answer'],
+        '#description' => t('The correct answer for this question.')
+      );
+      $widget['wrong_answers'] = array(
+        '#type' => 'textarea',
+        '#title' => t('Wrong Answers'),
+        '#default_value' => $value['wrong_answers'],
+        '#description' => t('Once answer per line. The correct answer will be shuffled in with these.'),
+      );
+      $widget['complexity'] = array(
+        '#type' => 'select',
+        '#title' => t('Complexity'),
+        '#options' => [
+          1 => 1,
+          2 => 2,
+          3 => 3,
+          4 => 4,
+          5 => 5
+        ],
+        '#default_value' => $value['complexity']
+      );
+    break;
+  }
+
+  return $widget;
+}
+
+/**
+ * Renders our questionnaire with the Form API.
+ */
+function questionnaire_get_form($form, &$form_state) {
+  $node = $form_state['build_info']['args'][0];
+
+  $form['#node'] = $node;
+
+  $form['questions'] = field_attach_view('node', $node, 'questionnaire_form');
+
+  $form['actions'] = array(
+    'submit' => array(
+      '#type' => 'submit',
+      '#value' => t('Submit'),
+      '#submit' => ['questionnaire_form_submit'],
+      '#access' => user_is_logged_in()
+    ),
+    'login' => array(
+      '#markup' => t('Please !login-link or !register-link to answer this questionnaire.', array(
+        '!login-link' => l('login', 'user/login', array('query' => drupal_get_destination())),
+        '!register-link' => l('register', 'user/register', array('query' => drupal_get_destination()))
+      )),
+      '#access' => user_is_anonymous()
+    )
+  );
+  return $form;
+}
+
+/**
+ * Submit handler.
+ */
+function questionnaire_form_submit(&$form, &$form_state) {
+  $field = $form['questions']['field_questions'];
+  $values = array();
+  $values['uid'] = $GLOBALS['user']->uid;
+  $values['nid'] = $form['#node']->nid;
+  $values['answers'] = '';
+  $answers = array();
+  foreach ($form_state['values'] as $k => $v) {
+    if (strpos($k, 'answers-') === 0) {
+      $delta = str_replace('answers-', '', $k);
+      $options = $field[$delta][$k]['#options'];
+      $answers[$delta] = $options[$v];
+    }
+  }
+  ksort($answers);
+  $values['answers'] = implode("\r\n", $answers);
+  if ($result_set = entity_create('questionnaire_result_set', $values)) {
+    entity_save('questionnaire_result_set', $result_set);
+  }
+}
+
+/**
+ * Implements hook_node_view().
+ */
+function questionnaire_node_view($node, $view_mode, $langcode) {
+  if ($node->type == 'questionnaire') {
+    if ($view_mode == 'full') {
+      if (questionnaire_result_set_load_multiple(FALSE, array('uid' => $GLOBALS['user']->uid, 'nid' => $node->nid))) {
+        $node->content['questionnaire'] = array(
+          '#markup' => t('Thank you for taking this questionnaire!')
+        );
+      } else {
+        $node->content['questionnaire'] = drupal_get_form('questionnaire_get_form', $node);
+      }
+    }
+  }
+}
+
+/**
+ * Implements hook_user_view().
+ */
+function questionnaire_user_view($account, $view_mode, $langcode) {
+  if ($view_mode == 'full') {
+    $result_sets = questionnaire_result_set_load_multiple(FALSE, ['uid' => $account->uid]);
+    $rows = array();
+    foreach ($result_sets as $r) {
+      $node = node_load($r->nid);
+      $correctCount = _questionnaire_get_correct_count($node, $r->answers);
+      $questionCount = count(field_get_items('node', $node, 'field_questions'));
+      $row = array(
+        $node->title,
+        "$correctCount / $questionCount (".(round($correctCount/$questionCount*100, 2))."%)"
+      );
+      $rows[] = $row;
+    }
+
+    $section = array(
+      '#type' => 'container',
+      'heading' => array(
+        '#markup' => t('Questionnaires taken'),
+      ),
+      'table' => array(
+        '#theme' => 'table',
+        '#heading' => array(
+          t('Questionnaire'),
+          t('Score')
+        ),
+        '#rows' => $rows
+      )
+    );
+    $account->content['questionnaires'] = $section;
+  }
+}
+
+function _questionnaire_get_correct_count($node, $answersGiven) {
+  $questions = field_get_items('node', $node, 'field_questions');
+  $correctCount = 0;
+  $answers = explode("\r\n", $answersGiven);
+  foreach ($answers as $qNum => $given) {
+    if ($questions[$qNum]['correct_answer'] == $given) {
+      $correctCount++;
+    }
+  }
+
+  return $correctCount;
+}
